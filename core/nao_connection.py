@@ -23,20 +23,23 @@ def test_connection(ip=None):
     Si ip est fourni, on l'utilise, sinon le script utilise la config.
     """
     script_path = os.path.join("scripts", "test_connection.py")
-
-    # Ajouter l'IP comme argument optionnel
     args = [PYTHON2_PATH, script_path]
     if ip:
         args.append(ip)
 
-    result = subprocess.run(
-        args,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True
-    )
+    try:
+        process = subprocess.Popen(
+            args,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        stdout, stderr = process.communicate()
 
-    print("[DEBUG] stdout:", result.stdout)
-    print("[DEBUG] stderr:", result.stderr)
+        print("[DEBUG] stdout:", stdout)
+        print("[DEBUG] stderr:", stderr)
 
-    return "OK" in result.stdout
+        return "OK" in stdout
+
+    except Exception as e:
+        print("[ERREUR] Échec du lancement du test : " + str(e))
+        return False
