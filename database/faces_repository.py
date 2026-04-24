@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 import json 
-try:
-    from database.connection import get_db_connection
-except ImportError:
-    from connection import get_db_connection
+
+from database.connection import get_db_connection
+
 
 class FacesRepository:
 
@@ -23,9 +22,15 @@ class FacesRepository:
             cur = conn.cursor()
             embedding_json = json.dumps(embedding.tolist())
 
+            cur.execute("INSERT INTO Enfants (prenom) VALUES (%s)", (name,))
+            id_enfant = conn.insert_id()
+
+            # 2. Insertion du visage
+            embedding_json = json.dumps(embedding.tolist())
+            # Ici il y a DEUX %s car on envoie DEUX données : id_enfant et embedding_json
             cur.execute(
-                "INSERT INTO persons (first_name, embedding) VALUES (%s, %s)",
-                (name, embedding_json)
+                "INSERT INTO Visages (id_enfant, encoding) VALUES (%s, %s)", 
+                (id_enfant, embedding_json)
             )
 
             conn.commit()
@@ -39,34 +44,30 @@ class FacesRepository:
     @staticmethod
     def get_all_persons():
         """
-        Récupère tous les visages connus
+        Récupère tous les visages enregistrés pour la reconnaissance.
         """
         conn = get_db_connection()
         if conn is None:
             return []
 
-        cur = conn.cursor()
-        cur.execute("SELECT first_name, embedding FROM persons")
-        rows = cur.fetchall()
+        persons = []
+        try:
+            cur = conn.cursor()
+            # On joint les tables pour avoir le nom et l'encodage
+            sql = "SELECT e.prenom, v.encoding FROM Enfants e JOIN Visages v ON e.id = v.id_enfant"
+            cur.execute(sql)
+            results = cur.fetchall()
 
-        cur.close()
-        conn.close()
-
-        result = []
-        for name, embedding_data in rows:
-            if embedding_data is None:
-                continue
-
-            try:
-                embedding_list = json.loads(embedding_data)
-                arr = np.array(embedding_list, dtype=float).flatten()
-
-                if len(arr) != 512:
-                    print(u"[WARN] Embedding pour {}: mauvaise taille {}, attendu 512".format(name, len(arr)))
-                    continue
-
-                result.append((name, arr))
-            except Exception as e:
-                print(u"Erreur décodage pour {}: {}".format(name, str(e)))
-
-        return result
+            for row in results:
+                name = row[0]
+                # On retransforme le texte JSON en liste Python, puis en array Numpy
+                embedding = np.array(json.loads(row[1]))
+                persons.append((name, embedding))
+                
+            return persons
+        except Exception as e:
+            print("Erreur lecture DB : " + str(e))
+            return []
+        finally:
+            cur.close()
+            conn.close()

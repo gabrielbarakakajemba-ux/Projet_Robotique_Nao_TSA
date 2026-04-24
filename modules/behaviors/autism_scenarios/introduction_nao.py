@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import sys
 import os
+
 ROOT_DIR = "/home/mr-kajemba/Nao_Autisme"
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
@@ -11,6 +12,7 @@ try:
         sys.path.insert(0, NAOQI_LIB_PATH)
 except ImportError:
     print("Erreur : Impossible de charger config.python_paths")
+    sys.exit(1)
 
 import qi
 
@@ -23,7 +25,7 @@ from utils.speech_and_animation_player import say_with_animation
 
 if not ROBOT_IP:
     print("IP du robot non définie")
-    exit()
+    sys.exit(1)
 
 #Connexion au Nao
 session=qi.Session()
@@ -33,6 +35,7 @@ try :
     print("Connexion réussie")
 except RuntimeError:
     print("Impossible de se connecter au robot")
+    sys.exit(1)
 
 apply_settings(session)
 
@@ -42,27 +45,27 @@ posture = session.service("ALRobotPosture")
 animation_player = session.service("ALAnimationPlayer")
 tts.setLanguage("French")
 
-# Mettre le robot en posture initiale
-posture.goToPosture("StandInit", 0.5) 
 
-tts.say(""" Bonjour. Je m'appelle Nao. Je suis très content de te voir aujourd'hui. """)
+def introduction_nao(robot_ip, nom):
+    try:
+        posture.goToPosture("StandInit", 0.5) 
 
-time.sleep(2)
+        tts.say(""" Bonjour. Je m'appelle Nao. Je suis très content de vous voir aujourd'hui. """)
 
-tts.say("Parfois, j'aime prendre un moment pour respirer doucement. Veux-tu respirer avec moi ?")
+        time.sleep(2.5)
 
-time.sleep(3)
+        tts.say("Parfois, j'aime prendre un moment pour respirer doucement. Qui veux respirer avec moi ?")
 
-# Exercice de mimetisme lent
-say_with_animation(tts, animation_player, "Lève tes bras doucement, on inspire...", "animations/Stand/Gestures/Enthusiastic_4")
-time.sleep(1.5)
+        time.sleep(3)
 
-say_with_animation(tts, animation_player, "Et on souffle tout doucement... On baisse les bras.", "animations/Stand/Gestures/CalmDown_1")
-time.sleep(2)
+        # Exercice de mimetisme lent
+        say_with_animation(tts, animation_player, "D'accord; Lève tes bras doucement, on inspire...", "animations/Stand/Gestures/Enthusiastic_4")
+        time.sleep(1.5)
 
-tts.say("C'est très bien. Tu t'es super bien débrouillé.")
+        say_with_animation(tts, animation_player, "Et on souffle tout doucement... On baisse les bras.", "animations/Stand/Gestures/CalmDown_1")
+        time.sleep(2)
 
-
-
-
+        tts.say("C'est très bien. Tu t'es super bien débrouillé.")
+    except Exception as e:
+        print("Erreur introduction : " + str(e))
 

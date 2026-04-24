@@ -5,12 +5,38 @@ import sys
 import os
 import mediapipe as mp
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+root = os.path.abspath(os.path.join(current_dir, "..", "..","..", ".."))
+
+if root not in sys.path:
+    sys.path.insert(0, root)
+
+try:
+    # Tentative d'import relatif (si utilisé comme module)
+    from .connection import get_db_connection
+except (ImportError, ValueError):
+    # Si lancé de l'extérieur, on s'assure que le dossier database est connu
+    try:
+        from database.connection import get_db_connection
+    except ImportError:
+        # Dernier recours : import direct si on est déjà dans le dossier database
+        import connection
+        get_db_connection = connection.get_db_connection
+
+try:
+    from hand_gesture_detection import open_hand, create_hand_detector, draw_hand
+    print("[OK] Modules de gestes charges depuis le sous-dossier.")
+except ImportError as e:
+    print("[ERROR] Toujours impossible de trouver le module.")
+    print("Detail de l'erreur : {}".format(e))
+    print("Contenu de {}: {}".format(current_dir, os.listdir(current_dir)))
+    sys.exit(1)
 
 from recognition.facenet_recognizer import FaceRecognizer
-from database.faces_repository import FacesRepository
 from unknown_faces import UnknownFaceManager
-from hand_gesture_detection import open_hand, create_hand_detector, draw_hand
+from database.faces_repository import FacesRepository
+from detection.yolo_detection  import YOLODetector
 
 
 def main():
@@ -21,7 +47,15 @@ def main():
     unknown_manager = UnknownFaceManager()
 
     # Initialisation du detector MediaPipe
-    detector = create_hand_detector()
+    detector_hand = create_hand_detector()
+    frame_timestamp_ms = 0
+
+    detector_yolo = YOLODetector()
+
+    
+    print("[INFO] Chargement de la base de donnees faciale...")
+    persons_db = FacesRepository.get_all_faces()
+
     frame_timestamp_ms = 0
 
     cap = cv2.VideoCapture(0)
@@ -38,8 +72,8 @@ def main():
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
 
-        # Détection landmarks
-        result = detector.detect_for_video(mp_image, frame_timestamp_ms)
+        # Détection landmarks (Mains)
+        result = detector_hand.detect_for_video(mp_image, frame_timestamp_ms)
         frame_timestamp_ms += 33
 
         # Vérifie si une main ouverte est détectée
@@ -47,41 +81,54 @@ def main():
         if result.hand_landmarks:
             for hand_landmarks in result.hand_landmarks:
                 draw_hand(frame, hand_landmarks)
-                if open_hand(hand_landmarks):  # ✅ on passe les landmarks, pas la frame
+                if open_hand(hand_landmarks):
                     gesture_detected = True
 
         if gesture_detected and not salutation_faite:
-            print("Main détectée, reconnaissance faciale...")
+            print(">> Main détectée ! Scan du visage en cours...")
 
-            result_face = recognizer.recognize(frame)
+            # --- CORRECTION ICI : On utilise detector_yolo au lieu de detector_hand ---
+            faces = detector_yolo.detect_faces(frame)
+            
+            if faces:
+                # On récupère les coordonnées du premier visage détecté par YOLO
+                x1, y1, x2, y2 = faces[0]
+                
+                # Sécurité : on s'assure que les coordonnées sont dans l'image
+                y1, y2 = max(0, y1), min(frame.shape[0], y2)
+                x1, x2 = max(0, x1), min(frame.shape[1], x2)
+                
+                face_img = frame[y1:y2, x1:x2]
+                
+                if face_img.size > 0:
+                    current_emb = recognizer.get_embedding(face_img)
+                    name, dist = recognizer.find_best_match(current_emb, persons_db)
 
-            if result_face["recognized"]:
-                name = result_face["name"]
-                print("Salut {}".format(name))
-
+                    if name:
+                        print(">> Salut {} ! (Distance: {:.2f})".format(name, dist))
+                    else:
+                        print(">> Nouveau visage détecté.")
+                        # Utilise raw_input si tu es sur le vieux Python du robot, sinon input
+                        user_name = input("Entrez votre prenom : ").strip()
+                        
+                        if user_name:
+                            FacesRepository.insert_person(user_name, current_emb)
+                            # On met à jour la liste locale pour le reconnaître immédiatement après
+                            persons_db.append((user_name, current_emb))
+                            print("✓ {} enregistré en base de données.".format(user_name))
             else:
-                print("Oh je crois pas te connaitre, donne moi ton prénom : ")
-                name = input().strip()
-
-                if name:
-                    embedding = result_face["embedding"]
-                    FacesRepository.insert_person(name, embedding)
-                    unknown_manager.register_unknown_face(result_face["face_id"], name)
-                    print("✓ {} enregistré avec succès !".format(name))
+                print("[WARN] Main vue, mais YOLO ne détecte aucun visage.")
 
             salutation_faite = True
 
         if not gesture_detected:
             salutation_faite = False
 
-        cv2.imshow("Camera", frame)
-
-        if cv2.waitKey(1) & 0xFF == 27:
-            break
+        cv2.imshow("Systeme Vision - Nao Autisme", frame)
+        if cv2.waitKey(1) & 0xFF == 27: break
 
     cap.release()
     cv2.destroyAllWindows()
-    print("Arrêt du système")
 
 
 if __name__ == "__main__":

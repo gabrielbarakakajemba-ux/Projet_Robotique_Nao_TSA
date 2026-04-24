@@ -1,11 +1,28 @@
 # -*- coding: utf-8 -*-
+import sys
+import os
 import socket
 import struct
 import cv2
 import numpy as np
-import qi
-import sys
-import os
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+root_path = os.path.abspath(os.path.join(current_dir, "..", "..", ".."))
+if root_path not in sys.path:
+    sys.path.insert(0, root_path)
+
+try:
+    from config.python_paths import NAOQI_LIB_PATH
+    if NAOQI_LIB_PATH not in sys.path:
+        sys.path.insert(0, NAOQI_LIB_PATH)
+    
+    import qi
+    print("[SUCCESS] Module 'qi' charge !")
+except ImportError:
+    print("[ERREUR] Impossible de charger 'qi'. Verifie NAOQI_LIB_PATH.")
+    sys.exit(1)
+
+
 import time
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))

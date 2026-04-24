@@ -12,6 +12,7 @@ try:
         sys.path.insert(0, NAOQI_LIB_PATH)
 except ImportError:
     print("Erreur : Impossible de charger config.python_paths")
+    sys.exit(1)
 
 import qi
 
@@ -22,8 +23,7 @@ from utils.speech_and_animation_player import say_with_animation
 
 if not ROBOT_IP:
     print("IP du robot non définie")
-    exit()
-
+    sys.exit(1)
 #Connexion au Nao
 session=qi.Session()
 
@@ -31,7 +31,9 @@ try :
     session.connect("tcp://{}:{}".format(ROBOT_IP, PORT))
     print("Connexion réussie")
 except RuntimeError:
-    print("Impossible de se connecter au robot")
+    print("Impossible de se connecter au robot"+ str(e))
+    sys.exit(1)
+    
 
 apply_settings(session)
 
@@ -45,14 +47,14 @@ posture.goToPosture("StandInit", 0.5)
 
 say_with_animation(tts, 
                    animation_player, 
-                   """Les enfants, vous avez vu ? Les mangroves, les herbiers et les coraux sont des trésors vivants ! Si on les protège, on protège aussi notre planète.""",
+                   """Bravo les enfants, vous avez été formidables ! Vous avez très bien travaillé aujourd'hui.""",
                     "animations/Stand/Gestures/Explain_2")
 
 time.sleep(1)
 
 say_with_animation(tts,
                    animation_player,
-                   """Alors, qui veut devenir un gardien de l’océan ? Souvenez-vous qu’un petit geste de votre part pourra aider l’environnement.""",
+                   """Je suis très content de vous avoir rencontrés. Vous êtes tous formidables !""",
                    "animations/Stand/Emotions/Positive/Excited_2"
                    )
 

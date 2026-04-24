@@ -16,7 +16,9 @@ PORT = 5000
 # ---------------------------------------------------
 
 # Charger modèle YOLO
-model = YOLO("models/yolov8n.pt")
+current_dir = os.path.dirname(os.path.abspath(__file__))
+model_path = os.path.join(current_dir, "models", "yolov8n.pt")
+model = YOLO(model_path)
 
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server_socket.bind((HOST, PORT))
@@ -56,9 +58,9 @@ def inference_worker():
                 cls = int(box.cls[0])
                 label = model.names[cls]
 
-                if label == "bottle":
+                if label in ["bottle", "cup"]:
                     x1, y1, x2, y2 = map(int, box.xyxy[0])
-                    boxes.append((x1, y1, x2, y2))
+                    boxes.append((x1, y1, x2, y2, label))
 
         with detections_lock:
             # modifier sur place pour que la référence côté thread principal reste valide
@@ -96,14 +98,15 @@ try:
         if len(data_buffer) < msg_size:
             continue
 
-        img_data = data_buffer[:msg_size]
         data_buffer = data_buffer[msg_size:]
-
-        # IMPORTANT : vider le buffer restant
-        data_buffer = b''
 
         # Décoder image
         nparr = np.frombuffer(img_data, np.uint8)
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+        # Sécurité : si l'image est corrompue, on passe à la suivante
+        if frame is None:
+            continue
         frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
         # Mettre la frame dans la file pour inférence en arrière-plan (conserver uniquement la plus récente)

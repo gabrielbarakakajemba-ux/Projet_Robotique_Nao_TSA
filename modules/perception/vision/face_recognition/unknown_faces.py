@@ -6,12 +6,11 @@ import cv2
 
 class UnknownFaceManager:
     def __init__(self):
-        self.base_dir = Path(__file__).parent.parent / "data" / "unknown_faces" # Dossier de stockage des visages inconnus et embeddings
+        self.base_dir = Path(__file__).resolve().parent / "unknown_faces_data"
         self.base_dir.mkdir(parents=True, exist_ok=True)
-        self.file = self.base_dir / "unknown_embeddings.pkl"  # Fichier de persistance des embeddings (pickle)
-        self.data = self._load() # Chargement des données existantes
+        self.file = self.base_dir / "unknown_embeddings.pkl" 
+        self.data = self._load()
 
-    # Charge les embeddings inconnus depuis le fichier pickle.
     def _load(self):
         if self.file.exists():
             with open(self.file, "rb") as f:

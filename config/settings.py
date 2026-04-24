@@ -4,7 +4,7 @@ def apply_settings(session):
     try:
         tts = session.service("ALTextToSpeech")
 
-        # Réglage du volume à 70%
+        # Réglage du volume à 50%
         tts.setVolume(0.70)
         print("[INFO] Volume réglé à 70%")
 

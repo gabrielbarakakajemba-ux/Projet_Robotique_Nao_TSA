@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import os
 import torch
 from ultralytics import YOLO
@@ -13,18 +14,12 @@ Classe responsable de la détection des visages
 à l'aide d'un modèle YOLO.
 """
 class YOLODetector:
-    def __init__(self, model_path=None):
-
-        # Utilise le modèle par défaut si aucun chemin n'est fourni
-        if model_path is None:
-            model_path = MODEL_PATH
+    def __init__(self, model_path="yolov8n.pt"):
         
         # Séléction automatique du GPU si disponible, sinon CPU
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
-        # Chargement du modèle YOLO
         self.model = YOLO(model_path)
-        self.model.to(self.device)
+        self.model.to(self.device) 
 
     # Détecte les visages dans une image
     def detect_faces(self, frame, conf=0.6):
