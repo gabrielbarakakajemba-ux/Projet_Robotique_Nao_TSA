@@ -25,7 +25,7 @@ if BASE_DIR not in sys.path:
 
 def refresh_questions(n_questions=3):
     print("[INFO] Chargement des questions depuis la base de donnees...")
-    
+
     try:
         all_questions = QuestionRepository.get_all_questions()
 
@@ -44,4 +44,3 @@ def refresh_questions(n_questions=3):
 
     except Exception as e:
         print("[ERROR] Echec du chargement : " + str(e))
-

@@ -6,39 +6,33 @@ import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 
-# ------------------------ TÉLÉCHARGEMENT DU MODÈLE -----------------------------
 model_url = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
 model_path = "hand_landmarker.task"
 
 
 def create_hand_detector():
-    """
-    Crée et retourne un HandLandmarker MediaPipe prêt à l'emploi.
-    Télécharge le modèle si nécessaire (en contournant le problème de certificat SSL).
-    """
     if not os.path.exists(model_path):
-        print("Téléchargement du modèle MediaPipe...")
+        print("Telechargement du modele MediaPipe...")
         ctx = ssl._create_unverified_context()
         opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=ctx))
         urllib.request.install_opener(opener)
         urllib.request.urlretrieve(model_url, model_path)
-        print("✓ Modèle téléchargé!")
+        print("Modele telecharge!")
 
     base_options = python.BaseOptions(model_asset_path=model_path)
     options = vision.HandLandmarkerOptions(
         base_options=base_options,
-        running_mode=vision.RunningMode.VIDEO,  # MODE VIDEO pour mouvement fluide
-        num_hands=2,  # Peut détecter 2 mains
-        min_hand_detection_confidence=0.5,  # Plus permissif
-        min_hand_presence_confidence=0.5,   # Plus permissif
-        min_tracking_confidence=0.5         # Plus permissif pour suivre le mouvement
+        running_mode=vision.RunningMode.VIDEO,
+        num_hands=2,
+        min_hand_detection_confidence=0.5,
+        min_hand_presence_confidence=0.5,
+        min_tracking_confidence=0.5
     )
 
     return vision.HandLandmarker.create_from_options(options)
 
 
 def open_hand(landmarks):
-    """Vérifie si la main est ouverte (tous les doigts levés)"""
     finger_tips = [8, 12, 16, 20]
     finger_mcps = [5, 9, 13, 17]
 
@@ -47,16 +41,13 @@ def open_hand(landmarks):
         if landmarks[tip].y < landmarks[mcp].y:
             doigts_leves += 1
 
-    # Vérifier le pouce
     if abs(landmarks[4].x - landmarks[2].x) > 0.05:
         doigts_leves += 1
 
-    # Main ouverte = au moins 4 doigts levés (tolérance)
     return doigts_leves >= 4
 
 
 def draw_hand(image, landmarks):
-    """Dessiner la main"""
     height, width = image.shape[:2]
 
     for lm in landmarks:
@@ -86,10 +77,10 @@ def main():
     frame_timestamp_ms = 0
 
     print("=" * 50)
-    print("DÉTECTION DE MAIN OUVERTE EN MOUVEMENT")
+    print("DETECTION DE MAIN OUVERTE EN MOUVEMENT")
     print("=" * 50)
     print("Instructions:")
-    print("- Montrez votre main ouverte devant la caméra")
+    print("- Montrez votre main ouverte devant la camera")
     print("- Bougez-la librement")
     print("- Le message 'MAIN OUVERTE' s'affichera")
     print("- ESC pour quitter")
@@ -106,7 +97,7 @@ def main():
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
 
         result = detector.detect_for_video(mp_image, frame_timestamp_ms)
-        frame_timestamp_ms += 33  # ~30 FPS
+        frame_timestamp_ms += 33
 
         open_hand_detected = False
 
@@ -119,7 +110,7 @@ def main():
         if open_hand_detected:
             cv2.putText(frame, "MAIN OUVERTE", (50, 100),
                         cv2.FONT_HERSHEY_SIMPLEX, 2.5, (0, 255, 0), 6)
-            print("Main ouverte détectée!")
+            print("Main ouverte detectee!")
         elif result.hand_landmarks:
             cv2.putText(frame, "Main fermee", (50, 100),
                         cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 255), 3)
@@ -129,12 +120,12 @@ def main():
 
         cv2.imshow("Detection Main Ouverte", frame)
 
-        if cv2.waitKey(1) & 0xFF == 27:  # ESC pour quitter
+        if cv2.waitKey(1) & 0xFF == 27:
             break
 
     cap.release()
     cv2.destroyAllWindows()
-    print("\nArrêt du programme")
+    print("\nArret du programme")
 
 
 if __name__ == "__main__":

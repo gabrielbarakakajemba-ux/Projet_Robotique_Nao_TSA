@@ -11,14 +11,13 @@ sys.path.insert(0, root_path)
 
 try:
     from config.python_paths import NAOQI_LIB_PATH
-    # **C'EST CETTE LIGNE QUI MANQUAIT :**
     if NAOQI_LIB_PATH not in sys.path:
         sys.path.insert(0, NAOQI_LIB_PATH)
-    
+
     print("[INFO] Chemins charges avec succes : " + NAOQI_LIB_PATH)
 except ImportError:
     print("[ERREUR] Impossible de trouver python_paths.py")
-    sys.exit(1) 
+    sys.exit(1)
 
 try:
     import qi
@@ -36,7 +35,6 @@ from config.nao_config import ROBOT_IP, PORT
 from config.pc_config import PC_IP, PC_PORT
 from utils.nao_movement import pickup_bottle
 
-# ----------------------- CONFIG -----------------------
 
 session = qi.Session()
 session.connect("tcp://{}:{}".format(ROBOT_IP, PORT))
@@ -49,16 +47,14 @@ posture.goToPosture("StandInit", 0.5)
 motion.wakeUp()
 motion.setStiffnesses("Head", 1.0)
 
-# -------------------------- CAMERA --------------------
 name_id = video.subscribeCamera(
     "python_stream",
     0,
-    1,      # 320x240
+    1,
     11,
     15
 )
 
-# ------------------------- SOCKET --------------------------
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 
@@ -70,7 +66,6 @@ while True:
         print("[INFO] Connexion refusee, attente du serveur PC...")
         time.sleep(0.5)
 
-# ------------------------- JOYSTICK ------------------------
 pygame.init()
 pygame.joystick.init()
 
@@ -86,7 +81,6 @@ print("Systeme pret")
 YAW_MAX = 2.0
 PITCH_MAX = 0.5
 
-# -------------------------- HEAD CONTROL --------------------------------
 head_lock = threading.Lock()
 head_angles = [0.0, 0.0]
 head_running = True
@@ -109,7 +103,6 @@ head_thread = threading.Thread(target=head_worker)
 head_thread.daemon = True
 head_thread.start()
 
-# ---------------------------MOVEMENT CONTROL ----------------------
 movement_lock = threading.Lock()
 movement_command = [0.0, 0.0, 0.0]
 movement_running = True
@@ -124,7 +117,6 @@ def movement_worker():
             try:
                 x, y, theta = cmd
                 if abs(x) > 0.01 or abs(y) > 0.01 or abs(theta) > 0.01:
-                    # Utilisation de move() qui est non-bloquant
                     motion.move(x, y, theta)
                 else:
                     motion.stopMove()
@@ -141,15 +133,13 @@ try:
     while True:
         pygame.event.pump()
 
-        # --- CONTROLE TETE ---
         axis_yaw = joystick.get_axis(2)
         axis_pitch = joystick.get_axis(3)
         with head_lock:
             head_angles = [-axis_yaw * YAW_MAX, axis_pitch * PITCH_MAX]
 
-        # --- ACTIONS SPECIALES ---
-        button_pickup = 14 
-        btn_stop = joystick.get_button(3) 
+        button_pickup = 14
+        btn_stop = joystick.get_button(3)
 
         if joystick.get_button(button_pickup):
             with movement_lock:
@@ -161,7 +151,6 @@ try:
             print("Arret demande")
             break
 
-        # --- CONTROLE DEPLACEMENT ---
         axe_x = joystick.get_axis(0)
         axe_y = joystick.get_axis(1)
 
@@ -171,7 +160,6 @@ try:
             else:
                 movement_command = [0.0, 0.0, 0.0]
 
-        # ----------------- CAMERA (Flux constant) --------------
         nao_image = video.getImageRemote(name_id)
         if nao_image is None:
             continue
@@ -193,7 +181,6 @@ try:
             break
 
 finally:
-    # **Arret propre de tous les threads et services**
     head_running = False
     movement_running = False
     time.sleep(0.1)

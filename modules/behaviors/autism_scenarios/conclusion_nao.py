@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
+
 import sys
 import os
+import time
 
-ROOT_DIR = "/home/mr-kajemba/Nao_Autisme"
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__)))))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
@@ -16,49 +19,57 @@ except ImportError:
 
 import qi
 
-import time
 from config.nao_config import ROBOT_IP, PORT
 from config.settings import apply_settings
 from utils.speech_and_animation_player import say_with_animation
 
 if not ROBOT_IP:
-    print("IP du robot non définie")
+    print("IP du robot non definie")
     sys.exit(1)
-#Connexion au Nao
-session=qi.Session()
 
-try :
+session = qi.Session()
+try:
     session.connect("tcp://{}:{}".format(ROBOT_IP, PORT))
-    print("Connexion réussie")
-except RuntimeError:
-    print("Impossible de se connecter au robot"+ str(e))
+    print("Connexion reussie")
+except RuntimeError as e:
+    print("Impossible de se connecter au robot : " + str(e))
     sys.exit(1)
-    
 
 apply_settings(session)
 
-tts = session.service("ALTextToSpeech")
-motion = session.service("ALMotion")
-posture = session.service("ALRobotPosture")
+tts              = session.service("ALTextToSpeech")
+motion           = session.service("ALMotion")
+posture          = session.service("ALRobotPosture")
 animation_player = session.service("ALAnimationPlayer")
 
-# Mettre le robot en posture initiale
-posture.goToPosture("StandInit", 0.5) 
 
-say_with_animation(tts, 
-                   animation_player, 
-                   """Bravo les enfants, vous avez été formidables ! Vous avez très bien travaillé aujourd'hui.""",
-                    "animations/Stand/Gestures/Explain_2")
+def conclusion_nao(nom):
+    try:
+        posture.goToPosture("StandInit", 0.5)
 
-time.sleep(1)
+        say_with_animation(
+            tts, animation_player,
+            u"Bravo {} ! Tu as ete formidable ! "
+            u"Tu as tres bien travaille aujourd'hui.".format(nom),
+            "animations/Stand/Gestures/Explain_2"
+        )
+        time.sleep(1)
 
-say_with_animation(tts,
-                   animation_player,
-                   """Je suis très content de vous avoir rencontrés. Vous êtes tous formidables !""",
-                   "animations/Stand/Emotions/Positive/Excited_2"
-                   )
+        say_with_animation(
+            tts, animation_player,
+            u"Je suis tres content de t'avoir rencontre {}. "
+            u"Tu es vraiment formidable !".format(nom),
+            "animations/Stand/Emotions/Positive/Excited_2"
+        )
+        time.sleep(1)
 
-time.sleep(1)
+        tts.say(u"Au revoir {} ! A tres bientot !".format(nom))
+        animation_player.run("animations/Stand/Gestures/Hey_3")
 
-tts.say("Au revoir les amis !")
-animation_player.run("animations/Stand/Gestures/Hey_3")
+    except Exception as e:
+        print("Erreur conclusion : " + str(e))
+
+
+if __name__ == "__main__":
+    nom = sys.argv[1] if len(sys.argv) > 1 else "petit ami"
+    conclusion_nao(nom)

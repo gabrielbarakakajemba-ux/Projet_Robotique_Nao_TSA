@@ -3,6 +3,7 @@ import requests
 import keyboard
 import sys
 import os
+
 root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 sys.path.insert(0, root_path)
 
@@ -42,10 +43,6 @@ session.connect("tcp://{}:{}".format(ROBOT_IP, PORT))
 tts = session.service("ALTextToSpeech")
 animation_player = session.service("ALAnimationPlayer")
 
-#class FakeTTS:
-#    def say(self, text): print("[SIMULATION NAO DIT] : " + text)
-
-#tts = FakeTTS()
 
 def get_face_name():
     try:
@@ -62,11 +59,6 @@ def get_face_name():
 
 
 def wait_for_face(timeout=10.0):
-    """
-    Attend qu'un visage soit reconnu avant de continuer.
-    Donne un retour vocal à l'utilisateur pendant l'attente.
-    Retourne le prénom ou None si timeout.
-    """
     print("[CLIENT] Attente reconnaissance faciale (max {}s)...".format(timeout))
     tts.say("Un instant...".encode("utf-8"))
 
@@ -77,7 +69,7 @@ def wait_for_face(timeout=10.0):
             return name
         __import__("time").sleep(0.5)
 
-    print("[CLIENT] Timeout reconnaissance, on continue sans prénom")
+    print("[CLIENT] Timeout reconnaissance, on continue sans prenom")
     return None
 
 
@@ -173,7 +165,6 @@ def main():
         print("[CLIENT] Fin de l'enregistrement")
         stop_recording()
 
-        # Rafraîchit le prénom si une nouvelle reconnaissance a eu lieu
         new_name = get_face_name()
         if new_name:
             prenom = new_name

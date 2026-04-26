@@ -10,9 +10,8 @@ class QuestionRepository:
     def get_all_questions():
         conn = get_db_connection()
         if conn is None: return []
-        
-        cur = conn.cursor()
 
+        cur = conn.cursor()
         cur.execute("SELECT id, question, answer FROM questions_list")
         rows = cur.fetchall()
         cur.close()
@@ -21,13 +20,9 @@ class QuestionRepository:
 
     @staticmethod
     def add_question(question, answer):
-        """
-        Ajoute une question. 
-        Note : Utilise u"ta chaine" pour les accents en Python 2.7
-        """
         conn = get_db_connection()
         if conn is None: return
-        
+
         try:
             cur = conn.cursor()
             cur.execute(
@@ -40,17 +35,16 @@ class QuestionRepository:
         finally:
             cur.close()
             conn.close()
- 
+
     @staticmethod
     def get_all_answers():
         conn = get_db_connection()
         if conn is None: return []
-        
+
         cur = conn.cursor()
         cur.execute("SELECT answer FROM questions_list")
         rows = cur.fetchall()
         cur.close()
         conn.close()
-
 
         return [row[0] for row in rows]

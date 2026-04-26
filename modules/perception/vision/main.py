@@ -11,7 +11,6 @@ import queue
 import time
 from flask import Flask, jsonify
 
-# --- Chemins et Imports ---
 current_dir = Path(__file__).resolve().parent
 root_dir = current_dir.parent.parent.parent
 if str(root_dir) not in sys.path:
@@ -23,26 +22,21 @@ from database.faces_repository import FacesRepository
 from modules.perception.vision.face_recognition.unknown_faces import UnknownFaceManager
 from modules.perception.vision.face_recognition.hand_gesture_detection import create_hand_detector, open_hand, mp
 
-# ================= CONFIG =================
-HOST = "0.0.0.0" # Écoute sur toutes les interfaces (PC)
-PORT = 5002      # Port sur lequel le NAO doit envoyer les images
+HOST = "0.0.0.0"
+PORT = 5002
 MATCH_THRESHOLD = 0.4
-PROCESS_EVERY_N_FRAMES = 3 # Accélérer pour le flux robot
-# ==========================================
+PROCESS_EVERY_N_FRAMES = 3
 
-# Chemins des modèles
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 MODEL_PATH = PROJECT_ROOT / "models" / "yolov8-face.pt"
 
 last_known_name = {"name": None, "timestamp": 0}
 
-# ================= FLASK API (Pour Introduction.py) =================
 flask_app = Flask(__name__)
 
 @flask_app.route("/last_face", methods=["GET"])
 def last_face():
     elapsed = time.time() - last_known_name["timestamp"]
-    # Si on a vu quelqu'un il y a moins de 5 secondes
     if last_known_name["name"] and elapsed < 5.0:
         return jsonify({"name": last_known_name["name"]})
     return jsonify({"name": None})
@@ -50,7 +44,6 @@ def last_face():
 def run_flask():
     flask_app.run(host="0.0.0.0", port=5001, use_reloader=False)
 
-# ================= FONCTION D'ENVOI AU NAO =================
 def send_text_message(conn, text):
     try:
         data = text.encode("utf-8")
@@ -63,8 +56,7 @@ def main():
     detector = YOLODetector(str(MODEL_PATH))
     recognizer = FaceRecognizer()
     unknown_manager = UnknownFaceManager()
-    
-    # Chargement initial de la DB
+
     persons_db = FacesRepository.get_all_persons()
     print("[INFO] {} visages connus charges depuis MariaDB".format(len(persons_db)))
 
@@ -74,7 +66,6 @@ def main():
     boxes_and_labels = []
     stop_event = threading.Event()
 
-    # --- Boucle de traitement IA ---
     def processing_loop():
         nonlocal persons_db
         while not stop_event.is_set():
@@ -103,19 +94,16 @@ def main():
                 else:
                     label = "INCONNU"
                     color = (0, 0, 255)
-                    # On stocke temporairement l'embedding si c'est un inconnu
                     unknown_manager.add_unknown_face(embedding, frame=face_crop)
-                    
+
                 new_boxes.append((x1, y1, x2, y2, label, color))
 
             with boxes_lock:
                 boxes_and_labels[:] = new_boxes
 
-    # Lancement des threads
     threading.Thread(target=run_flask, daemon=True).start()
     threading.Thread(target=processing_loop, daemon=True).start()
 
-    # --- Socket Server pour recevoir le flux du NAO ---
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.bind((HOST, PORT))
     server_socket.listen(1)
@@ -124,57 +112,51 @@ def main():
     try:
         conn, addr = server_socket.accept()
         print("[INFO] NAO connecte : {}".format(addr))
-        
+
         data_buffer = b''
         frame_count = 0
 
         while not stop_event.is_set():
-            # Lecture de la taille de l'image
             while len(data_buffer) < 4:
                 packet = conn.recv(4096)
                 if not packet: break
                 data_buffer += packet
-            
+
             if not data_buffer: break
             msg_size = struct.unpack(">L", data_buffer[:4])[0]
             data_buffer = data_buffer[4:]
 
-            # Lecture du contenu de l'image
             while len(data_buffer) < msg_size:
                 data_buffer += conn.recv(min(65536, msg_size - len(data_buffer)))
-            
+
             img_data = data_buffer[:msg_size]
             data_buffer = data_buffer[msg_size:]
 
-            # --- LOGIQUE D'ENREGISTREMENT ---
             try:
                 text_msg = img_data.decode("utf-8")
                 if text_msg.startswith("REGISTER:"):
                     prenom = text_msg.split(":")[1].strip()
-                    # On prend le dernier visage inconnu et on l'ajoute en DB
                     unregistered = unknown_manager.get_unregistered_faces()
                     if unregistered:
                         last_id = max(unregistered.keys())
                         emb = unregistered[last_id]["embedding"]
-                        FacesRepository.insert_person(prenom, emb) # Sauvegarde MariaDB
-                        persons_db = FacesRepository.get_all_persons() # Refresh
+                        FacesRepository.insert_person(prenom, emb)
+                        persons_db = FacesRepository.get_all_persons()
                         print("[SUCCESS] {} ajoute a la base de donnees !".format(prenom))
                         send_text_message(conn, "REGISTER_OK")
                     continue
             except:
                 pass
 
-            # --- Décodage et Affichage ---
             nparr = np.frombuffer(img_data, np.uint8)
             frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-            
+
             if frame is not None:
                 frame_count += 1
                 if frame_count % PROCESS_EVERY_N_FRAMES == 0:
                     if not frame_queue.full():
                         frame_queue.put(frame.copy())
 
-                # Dessin des boites de reconnaissance
                 with boxes_lock:
                     for (x1, y1, x2, y2, label, color) in boxes_and_labels:
                         cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)

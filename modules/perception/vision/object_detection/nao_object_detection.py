@@ -10,12 +10,9 @@ import time
 from ultralytics import YOLO
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
-# ----------------------- CONFIG --------------------
 HOST = "0.0.0.0"
 PORT = 5000
-# ---------------------------------------------------
 
-# Charger modèle YOLO
 current_dir = os.path.dirname(os.path.abspath(__file__))
 model_path = os.path.join(current_dir, "models", "yolov8n.pt")
 model = YOLO(model_path)
@@ -27,14 +24,14 @@ server_socket.listen(1)
 print("En attente de connexion du NAO...")
 conn, addr = server_socket.accept()
 conn.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 65536)
-print("Connecté à :", addr)
+print("Connecte a :", addr)
 
 data_buffer = b''
-bottle_present = False  # pour éviter spam print
+bottle_present = False
 frame_queue = queue.Queue(maxsize=1)
 detections_lock = threading.Lock()
 detections = []
-# 
+
 prev_boxes = []
 prev_age = 0
 MAX_PERSIST_FRAMES = 6
@@ -49,7 +46,6 @@ def inference_worker():
         except queue.Empty:
             continue
 
-        # Exécuter l'inférence YOLO (potentiellement lente) en arrière-plan
         results = model(frame, conf=0.5, verbose=False)
 
         boxes = []
@@ -63,18 +59,15 @@ def inference_worker():
                     boxes.append((x1, y1, x2, y2, label))
 
         with detections_lock:
-            # modifier sur place pour que la référence côté thread principal reste valide
             detections[:] = boxes
 
 
-# Démarrer le thread d'inférence
 worker_thread = threading.Thread(target=inference_worker)
 worker_thread.daemon = True
 worker_thread.start()
 
 try:
     while True:
-        # Lire taille image
         while len(data_buffer) < 4:
             packet = conn.recv(4096)
             if not packet:
@@ -88,7 +81,6 @@ try:
         data_buffer = data_buffer[4:]
         msg_size = struct.unpack(">L", packed_size)[0]
 
-        # Lire image complète
         while len(data_buffer) < msg_size:
             packet = conn.recv(4096)
             if not packet:
@@ -98,18 +90,15 @@ try:
         if len(data_buffer) < msg_size:
             continue
 
+        img_data = data_buffer[:msg_size]
         data_buffer = data_buffer[msg_size:]
 
-        # Décoder image
         nparr = np.frombuffer(img_data, np.uint8)
         frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-        # Sécurité : si l'image est corrompue, on passe à la suivante
         if frame is None:
             continue
-        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-        # Mettre la frame dans la file pour inférence en arrière-plan (conserver uniquement la plus récente)
         try:
             if frame_queue.full():
                 try:
@@ -120,11 +109,9 @@ try:
         except queue.Full:
             pass
 
-        # Dessiner les détections produites par le thread d'inférence
         with detections_lock:
             boxes_copy = list(detections)
 
-        # Si pas de détection sur cette frame, réutiliser les boxes précédentes pendant un court instant pour éviter le scintillement
         if boxes_copy:
             prev_boxes = boxes_copy
             prev_age = 0
@@ -138,20 +125,17 @@ try:
                 prev_age = 0
 
         bottle_detected = False
-        for (x1, y1, x2, y2) in boxes_copy:
+        for (x1, y1, x2, y2, label) in boxes_copy:
             bottle_detected = True
             cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-            cv2.putText(frame, "Bottle", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+            cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
 
-        # Afficher une seule fois quand la bouteille apparaît
         if bottle_detected and not bottle_present:
-            print("Bouteille détectée")
+            print("Bouteille detectee")
             bottle_present = True
 
         if not bottle_detected:
             bottle_present = False
-
-        # -------------------------------------------
 
         cv2.imshow("NAO YOLO Bottle Detection", frame)
 
@@ -159,7 +143,6 @@ try:
             break
 
 finally:
-    # arrêter proprement le thread d'inférence
     running = False
     try:
         worker_thread.join(timeout=1.0)
@@ -169,4 +152,4 @@ finally:
     conn.close()
     server_socket.close()
     cv2.destroyAllWindows()
-    print("\nArrêt du programme")
+    print("\nArret du programme")

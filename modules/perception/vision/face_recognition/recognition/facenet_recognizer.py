@@ -3,16 +3,10 @@
 import torch
 import numpy as np
 from facenet_pytorch import InceptionResnetV1
-import torch
-import numpy as np
-from facenet_pytorch import InceptionResnetV1
 from torchvision import transforms
 import cv2
 
-"""
-Classe responsable de l'extraction des embeddings faciaux
-et de la comparaison des visages à l'aide de FaceNet.
-"""
+
 class FaceRecognizer:
     def __init__(self):
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -64,7 +58,7 @@ class FaceRecognizer:
         if not distances: return None, float('inf')
         distances.sort(key=lambda x: x[1])
         best_name, best_dist = distances[0]
-        
+
         if best_dist > threshold: return None, best_dist
 
         if len(distances) > 1:

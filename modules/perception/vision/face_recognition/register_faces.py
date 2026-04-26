@@ -7,22 +7,12 @@ import mediapipe as mp
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 
-root = os.path.abspath(os.path.join(current_dir, "..", "..","..", ".."))
+root = os.path.abspath(os.path.join(current_dir, "..", "..", "..", ".."))
 
 if root not in sys.path:
     sys.path.insert(0, root)
 
-try:
-    # Tentative d'import relatif (si utilisé comme module)
-    from .connection import get_db_connection
-except (ImportError, ValueError):
-    # Si lancé de l'extérieur, on s'assure que le dossier database est connu
-    try:
-        from database.connection import get_db_connection
-    except ImportError:
-        # Dernier recours : import direct si on est déjà dans le dossier database
-        import connection
-        get_db_connection = connection.get_db_connection
+from database.connection import get_db_connection
 
 try:
     from hand_gesture_detection import open_hand, create_hand_detector, draw_hand
@@ -46,13 +36,12 @@ def main():
     recognizer = FaceRecognizer()
     unknown_manager = UnknownFaceManager()
 
-    # Initialisation du detector MediaPipe
     detector_hand = create_hand_detector()
     frame_timestamp_ms = 0
 
     detector_yolo = YOLODetector()
 
-    
+
     print("[INFO] Chargement de la base de donnees faciale...")
     persons_db = FacesRepository.get_all_faces()
 
@@ -68,15 +57,12 @@ def main():
 
         frame = cv2.flip(frame, 1)
 
-        # Conversion pour MediaPipe
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
 
-        # Détection landmarks (Mains)
         result = detector_hand.detect_for_video(mp_image, frame_timestamp_ms)
         frame_timestamp_ms += 33
 
-        # Vérifie si une main ouverte est détectée
         gesture_detected = False
         if result.hand_landmarks:
             for hand_landmarks in result.hand_landmarks:
@@ -85,21 +71,18 @@ def main():
                     gesture_detected = True
 
         if gesture_detected and not salutation_faite:
-            print(">> Main détectée ! Scan du visage en cours...")
+            print(">> Main detectee ! Scan du visage en cours...")
 
-            # --- CORRECTION ICI : On utilise detector_yolo au lieu de detector_hand ---
             faces = detector_yolo.detect_faces(frame)
-            
+
             if faces:
-                # On récupère les coordonnées du premier visage détecté par YOLO
                 x1, y1, x2, y2 = faces[0]
-                
-                # Sécurité : on s'assure que les coordonnées sont dans l'image
+
                 y1, y2 = max(0, y1), min(frame.shape[0], y2)
                 x1, x2 = max(0, x1), min(frame.shape[1], x2)
-                
+
                 face_img = frame[y1:y2, x1:x2]
-                
+
                 if face_img.size > 0:
                     current_emb = recognizer.get_embedding(face_img)
                     name, dist = recognizer.find_best_match(current_emb, persons_db)
@@ -107,17 +90,15 @@ def main():
                     if name:
                         print(">> Salut {} ! (Distance: {:.2f})".format(name, dist))
                     else:
-                        print(">> Nouveau visage détecté.")
-                        # Utilise raw_input si tu es sur le vieux Python du robot, sinon input
+                        print(">> Nouveau visage detecte.")
                         user_name = input("Entrez votre prenom : ").strip()
-                        
+
                         if user_name:
                             FacesRepository.insert_person(user_name, current_emb)
-                            # On met à jour la liste locale pour le reconnaître immédiatement après
                             persons_db.append((user_name, current_emb))
-                            print("✓ {} enregistré en base de données.".format(user_name))
+                            print("{} enregistre en base de donnees.".format(user_name))
             else:
-                print("[WARN] Main vue, mais YOLO ne détecte aucun visage.")
+                print("[WARN] Main vue, mais YOLO ne detecte aucun visage.")
 
             salutation_faite = True
 

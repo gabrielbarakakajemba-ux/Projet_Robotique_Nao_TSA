@@ -1,5 +1,5 @@
 import os
-# chemin ABSOLU vers la racine du projet
+
 base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 env_path = os.path.join(base_dir, ".env")
 

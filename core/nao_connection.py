@@ -11,17 +11,13 @@ if BASE_DIR not in sys.path:
 
 try:
     from config.python_paths import PYTHON2_PATH
-    print(u"[SUCCESS] Python 2 path trouvé : {}".format(PYTHON2_PATH))
+    print(u"[SUCCESS] Python 2 path trouve : {}".format(PYTHON2_PATH))
 except ImportError as e:
     print(u"[ERREUR] Import impossible. Details : {}".format(str(e)))
     print(u"Chemins explores par Python : {}".format(sys.path))
     PYTHON2_PATH = "python2"
 
 def test_connection(ip=None):
-    """
-    Lance le script Python2.7 pour tester la connexion NAO.
-    Si ip est fourni, on l'utilise, sinon le script utilise la config.
-    """
     script_path = os.path.join("scripts", "test_connection.py")
     args = [PYTHON2_PATH, script_path]
     if ip:
@@ -41,5 +37,5 @@ def test_connection(ip=None):
         return "OK" in stdout
 
     except Exception as e:
-        print("[ERREUR] Échec du lancement du test : " + str(e))
+        print("[ERREUR] Echec du lancement du test : " + str(e))
         return False
